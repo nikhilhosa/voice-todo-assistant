@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+}
+
+enum TaskStatus {
+  pending
+  completed
+  cancelled
+}
+
+enum TaskSource {
+  manual
+  voice
+  assistant
+  api
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String?  @unique
+  phone     String?  @unique
+  createdAt DateTime @default(now())
+
+  tasks     Task[]
+  voiceInputs VoiceInput[]
+}
+
+model Task {
+  id          String        @id @default(uuid())
+  userId      String
+  title       String
+  description String?
+
+  dueDate     DateTime?
+  reminderAt  DateTime?
+
+  priority    TaskPriority  @default(medium)
+  status      TaskStatus    @default(pending)
+  source      TaskSource    @default(manual)
+
+  completedAt DateTime?
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  user        User          @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([reminderAt])
+}
+
+model VoiceInput {
+  id        String   @id @default(uuid())
+  userId    String
+  text      String
+  language  String   @default("en")
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
