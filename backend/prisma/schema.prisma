@@ -32,30 +32,32 @@ model User {
   phone     String?  @unique
   createdAt DateTime @default(now())
 
-  tasks     Task[]
+  tasks       Task[]
   voiceInputs VoiceInput[]
 }
 
 model Task {
-  id          String        @id @default(uuid())
+  id          String  @id @default(uuid())
   userId      String
   title       String
   description String?
 
-  dueDate     DateTime?
-  reminderAt  DateTime?
+  dueDate    DateTime?
+  reminderAt DateTime?
 
-  priority    TaskPriority  @default(medium)
-  status      TaskStatus    @default(pending)
-  source      TaskSource    @default(manual)
+  priority TaskPriority @default(medium)
+  status   TaskStatus   @default(pending)
+  source   TaskSource   @default(manual)
 
   completedAt DateTime?
 
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  deletedAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  user        User          @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  reminders Reminder[]
 
   @@index([userId])
   @@index([reminderAt])
@@ -66,10 +68,25 @@ model VoiceInput {
   userId    String
   text      String
   language  String   @default("en")
+  timezone  String   @default("UTC")
   status    String   @default("pending")
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 
+  @@index([status])
   @@index([userId])
+}
+
+model Reminder {
+  id          String    @id @default(uuid())
+  taskId      String
+  type        String
+  scheduledAt DateTime
+  sentAt      DateTime?
+  status      String    @default("pending")
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  @@index([scheduledAt])
 }

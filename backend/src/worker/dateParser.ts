@@ -1,16 +1,34 @@
-export function parseDate(text:string){
+import chrono from "chrono-node"
 
-  const now = new Date();
+export interface DateParseResult {
+  dueDate?: Date
+  reminderAt?: Date
+  cleanedText: string
+}
 
-  if(text.includes("tomorrow")){
-    const date = new Date();
-    date.setDate(now.getDate()+1);
-    return date;
+export function parseDateTime(text: string): DateParseResult {
+
+  const results = chrono.parse(text)
+
+  if (!results.length) {
+    return {
+      cleanedText: text
+    }
   }
 
-  if(text.includes("today")){
-    return now;
-  }
+  const result = results[0]
 
-  return null;
+  const date = result.start.date()
+
+  const start = result.index
+  const end = start + result.text.length
+
+  const cleanedText =
+    text.slice(0, start) + text.slice(end)
+
+  return {
+    dueDate: date,
+    reminderAt: date,
+    cleanedText: cleanedText.trim()
+  }
 }

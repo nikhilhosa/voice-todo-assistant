@@ -1,17 +1,15 @@
-const otpStore = new Map<string, { otp: string; expires: number }>();
+import { redis } from "../../core/redis/redis";
 
-export function saveOtp(key: string, otp: string) {
-  otpStore.set(key, {
-    otp,
-    expires: Date.now() + 5 * 60 * 1000
-  });
+const OTP_TTL = 300; // 5 minutes
+
+export async function saveOtp(key: string, otp: string) {
+  await redis.set(`otp:${key}`, otp, "EX", OTP_TTL);
 }
 
-export function verifyOtp(key: string, otp: string) {
-  const data = otpStore.get(key);
+export async function verifyOtp(key: string, otp: string) {
+  const stored = await redis.get(`otp:${key}`);
 
-  if (!data) return false;
-  if (Date.now() > data.expires) return false;
+  if (!stored) return false;
 
-  return data.otp === otp;
+  return stored === otp;
 }

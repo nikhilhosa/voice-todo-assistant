@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "VoiceInput" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ;

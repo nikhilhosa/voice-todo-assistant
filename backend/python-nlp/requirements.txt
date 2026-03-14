@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+dateparser
+spacy
+python-dateutil
+pytz

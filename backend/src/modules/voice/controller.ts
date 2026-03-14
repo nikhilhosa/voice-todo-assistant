@@ -1,28 +1,27 @@
-import { FastifyReply, FastifyRequest } from "fastify";
-import { VoiceService } from "./service";
-import { voiceInputSchema } from "./schema";
+import { FastifyReply, FastifyRequest } from "fastify"
+import { VoiceService } from "./service"
 
 export class VoiceController {
 
-  private service = new VoiceService();
+  private service: VoiceService
 
-  async create(req:FastifyRequest, reply:FastifyReply){
+  constructor() {
+    this.service = new VoiceService()
+  }
 
-    const user = req.user as { id:string };
+  async createVoiceInput(request: FastifyRequest, reply: FastifyReply) {
 
-    const body = voiceInputSchema.parse(req.body);
+    const userId = (request as any).user.id
+    const { text, language, timezone } = request.body as any
 
     const voice = await this.service.handleVoiceInput({
-      userId: user.id,
-      text: body.text,
-      language: body.language || "en"
-    });
+      userId,
+      text,
+      language: language || "en",
+      timezone: timezone || "UTC"
+    })
 
-    return reply.send({
-      message:"Voice input received",
-      id: voice.id
-    });
-
+    return reply.send(voice)
   }
 
 }

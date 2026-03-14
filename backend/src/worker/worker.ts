@@ -1,9 +1,8 @@
 import { Worker } from "bullmq";
+import axios from "axios";
 import { prisma } from "../core/db/prisma";
-
-import { parseVoiceText } from "./parser";
-import { parseDate } from "./dateParser";
 import { createTaskFromVoice } from "./taskCreator";
+
 
 const worker = new Worker(
   "voice-processing",
@@ -17,22 +16,26 @@ const worker = new Worker(
 
     if (!voice) return;
 
-    const parsed = parseVoiceText(voice.text);
-    const reminder = parseDate(voice.text);
-
-    await createTaskFromVoice(
-      voice.userId,
-      parsed.title,
-      reminder
+    // Call Python NLP service
+    const response = await axios.post(
+      "http://localhost:8001/parse",
+      { text: voice.text }
     );
+
+    const parsed = response.data;
+
+    await createTaskFromVoice({
+      userId: voice.userId,
+      title: parsed.title,
+      reminderAt: parsed.datetime
+    });
 
     await prisma.voiceInput.update({
       where: { id: voiceId },
       data: { status: "processed" }
     });
-
+    console.log("Parsed NLP result:", parsed)
     console.log("Voice job processed:", voiceId);
-
   },
   {
     connection: {

@@ -1,19 +1,34 @@
-import { VoiceRepository } from "./repository";
-import { voiceQueue } from "../../core/queue/queue";
+import { VoiceRepository } from "./repository"
+import { voiceQueue } from "../../core/queue/queue"
 
 export class VoiceService {
 
-  private repo = new VoiceRepository();
+  private repo: VoiceRepository
 
-  async handleVoiceInput(data:any){
+  constructor() {
+    this.repo = new VoiceRepository()
+  }
 
-    const voice = await this.repo.create(data);
+  async handleVoiceInput(data: any) {
 
-    await voiceQueue.add("process-voice", {
-      voiceId: voice.id
-    });
+    const voice = await this.repo.create(data)
 
-    return voice;
+    await voiceQueue.add(
+      "process-voice",
+      {
+        voiceId: voice.id
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 5000
+        },
+        removeOnComplete: true
+      }
+    )
+
+    return voice
   }
 
 }

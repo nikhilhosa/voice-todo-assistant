@@ -1,6 +1,7 @@
 import { prisma } from "../../core/db/prisma";
 
 export class TaskRepository {
+
   async create(data: any) {
     return prisma.task.create({ data });
   }
@@ -24,26 +25,27 @@ export class TaskRepository {
   }
 
   async update(id: string, userId: string, data: any) {
-    return prisma.task.updateMany({
-      where: { id, userId },
-      data,
+    return prisma.task.update({
+      where: { id },
+      data
     });
   }
 
   async softDelete(id: string, userId: string) {
-    return prisma.task.updateMany({
-      where: { id, userId },
+    return prisma.task.update({
+      where: { id },
       data: { deletedAt: new Date() },
     });
   }
 
   async complete(id: string, userId: string) {
-    return prisma.task.updateMany({
-      where: { id, userId },
+    return prisma.task.update({
+      where: { id },
       data: {
         status: "completed",
         completedAt: new Date(),
       },
     });
   }
+
 }
