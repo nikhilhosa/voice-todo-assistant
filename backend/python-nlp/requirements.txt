@@ -1,6 +1,5 @@
-fastapi
-uvicorn
-dateparser
-spacy
-python-dateutil
+fastapi==0.110.1
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+dateparser==1.2.2
 pytz

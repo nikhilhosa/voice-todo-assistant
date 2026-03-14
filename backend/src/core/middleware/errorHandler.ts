@@ -10,11 +10,11 @@ export function registerErrorHandler(app: FastifyInstance) {
     if (error instanceof ZodError) {
       return reply.status(400).send({
         message: "Validation error",
-        errors: error.errors
+        errors: error.issues
       });
     }
 
-    if (error.message === "Invalid OTP") {
+    if (error instanceof Error && error.message === "Invalid OTP") {
       return reply.status(401).send({
         message: "Invalid OTP"
       });

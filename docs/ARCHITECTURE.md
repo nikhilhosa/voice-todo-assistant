@@ -53,43 +53,37 @@ Output only the markdown content for ARCHITECTURE.md.
 
 ## Overview
 
-The system is a **voice-first smart task management platform** designed to allow users to create and manage tasks using natural voice commands without needing to open the application manually.
+The system is a **voice-first smart task management platform** designed to allow users to create, manage, and complete tasks through natural voice interaction. Instead of requiring users to manually open an application and enter tasks, the system captures voice commands, converts them into structured data, and schedules intelligent reminders.
 
-The core idea is:
-
-```
-Speak once → Task structured automatically → Reminder scheduled
-```
-
-The system integrates with mobile devices and voice assistants while maintaining a scalable backend architecture.
-
-The architecture follows an **event-driven design** with asynchronous processing to ensure responsiveness and scalability.
+The architecture follows a **modular, event-driven design** where voice commands are processed asynchronously to ensure responsiveness and scalability.
 
 High-level workflow:
 
 ```
 User Voice
    ↓
-Voice Capture (Mobile / Assistant)
+Speech Capture (Mobile / Assistant)
    ↓
 Speech-to-Text
    ↓
-Voice Command API
+Voice Input API
    ↓
 Queue Processing
    ↓
-Rule-Based NLP Parser
+Python NLP Parsing
    ↓
 Task Engine
    ↓
 Database
    ↓
-Notification Scheduler
+Reminder Scheduler
    ↓
-User Reminder
+Notification Engine
+   ↓
+User Interaction
 ```
 
-The system is composed of several independent layers that communicate through APIs and message queues.
+The architecture separates responsibilities into multiple layers, enabling independent scaling and clean system boundaries.
 
 ---
 
@@ -97,82 +91,83 @@ The system is composed of several independent layers that communicate through AP
 
 ## Mobile App Layer
 
-The mobile application acts as the **primary user interface and device integration layer**.
+The mobile application serves as the **primary user interface and device integration layer**.
 
-Responsibilities:
+Responsibilities include:
 
-* Capture voice commands from the microphone
-* Authenticate users
-* Display tasks and reminders
-* Allow manual task creation and editing
-* Sync with backend APIs
-* Store authentication tokens securely
-* Trigger local notifications
+* Capturing voice input from the device microphone
+* Sending transcribed voice commands to the backend
+* Displaying tasks and reminders
+* Allowing manual task creation and editing
+* Receiving and displaying push notifications
+* Handling user authentication
+* Managing user preferences (language, timezone)
 
-Key components:
+Key features:
 
 ```
 Voice capture
 Task dashboard
 Authentication UI
-Notification display
-Offline sync support
+Reminder notifications
+Quick-response buttons (Yes / Not yet / Snooze)
+Offline synchronization
 ```
 
-Technologies typically used:
+Typical technologies:
 
 ```
 React Native or Flutter
 Secure storage for tokens
-Push notification integration
+Push notification services
 ```
 
-The mobile app sends structured requests to the backend via REST APIs.
+The mobile app communicates with the backend through secure REST APIs.
 
 ---
 
 ## Voice Interaction Layer
 
-This layer is responsible for converting **natural speech into structured commands**.
+This layer is responsible for converting **spoken language into structured task data**.
 
-Responsibilities:
+Steps involved:
 
-```
-Speech capture
-Speech-to-text conversion
-Intent detection
-Command parsing
-```
+1. The user speaks a command.
+2. The device converts speech to text using system-level speech recognition.
+3. The text command is sent to the backend voice endpoint.
+4. A natural language processing engine extracts the task structure.
 
-Steps:
-
-1. User speaks a command.
-2. Speech is converted to text using device or assistant STT engines.
-3. The text is sent to the backend voice processing endpoint.
-
-Example voice input:
+Example voice command:
 
 ```
-"Remind me to call mom tomorrow at 6pm"
+"Remind me to buy milk tomorrow at 8am"
 ```
 
 Converted to text:
 
 ```
-remind me to call mom tomorrow at 6pm
+buy milk tomorrow at 8am
 ```
 
-The backend then processes the text using a **rule-based NLP parser** that extracts:
+The NLP system extracts:
 
 ```
-title
-date
-time
-priority
-reminder
+intent
+task title
+due date
+reminder time
 ```
 
-This design avoids early dependency on external AI APIs.
+Example parsed result:
+
+```
+intent: create_task
+title: buy milk
+dueDate: 2026-03-15T08:00:00Z
+reminderAt: 2026-03-15T08:00:00Z
+```
+
+This structured data is then used by the backend to create or update tasks.
 
 ---
 
@@ -201,11 +196,17 @@ Flow:
 ```
 User speaks to Siri
 ↓
-Siri captures intent
+Siri identifies intent
 ↓
-App Intent triggered
+App intent triggers
 ↓
 Mobile app sends API request
+```
+
+Example:
+
+```
+"Hey Siri, remind me to buy milk at 5pm"
 ```
 
 ### Google Assistant Integration
@@ -214,22 +215,22 @@ Uses:
 
 ```
 App Actions
-Android intents
+Android Intents
 ```
 
 Flow:
 
 ```
-User speaks command
+User voice command
 ↓
-Assistant resolves intent
+Google Assistant resolves intent
 ↓
 App action triggered
 ↓
 Mobile app sends API request
 ```
 
-Both assistants ultimately trigger the same backend endpoint:
+Both assistants ultimately trigger the backend endpoint:
 
 ```
 POST /v1/voice-input
@@ -239,31 +240,31 @@ POST /v1/voice-input
 
 ## Backend Layer
 
-The backend is responsible for **all business logic, task processing, and integrations**.
+The backend is responsible for **all business logic, processing pipelines, and integrations**.
 
 Technology stack:
 
 ```
-Fastify (Node.js)
+Node.js
+Fastify
 TypeScript
-Prisma ORM
 BullMQ
 Redis
 ```
 
-Responsibilities:
+Responsibilities include:
 
 ```
 User authentication
 Task management
 Voice command processing
 Queue management
-Data validation
-Security enforcement
+Reminder scheduling
+Notification triggering
 Assistant integration APIs
 ```
 
-Key modules:
+Key backend modules:
 
 ```
 Auth Module
@@ -271,9 +272,11 @@ Task Engine
 Voice Processing Module
 Queue System
 Worker Services
+Reminder Scheduler
+Reminder Engine
 ```
 
-Main endpoints:
+Main API endpoints:
 
 ```
 POST /auth/otp/request
@@ -288,15 +291,13 @@ PATCH /v1/tasks/:id/complete
 POST /v1/voice-input
 ```
 
-Voice commands are processed asynchronously using a queue to ensure the API remains fast.
+Voice commands are processed asynchronously using a queue to keep the API responsive.
 
 ---
 
 ## Database Layer
 
-The system uses **PostgreSQL** as the primary database.
-
-Data is accessed using **Prisma ORM**.
+The system uses **PostgreSQL** as the primary database with **Prisma ORM** for data access.
 
 Core entities:
 
@@ -304,13 +305,14 @@ Core entities:
 User
 Task
 VoiceInput
+Reminder
 ```
 
 ### User
 
-Stores user identity and authentication data.
+Stores user identity and authentication details.
 
-Fields:
+Fields include:
 
 ```
 id
@@ -344,12 +346,13 @@ status
 dueDate
 reminderAt
 source
+completedAt
 createdAt
 updatedAt
 deletedAt
 ```
 
-Sources:
+Sources may include:
 
 ```
 manual
@@ -371,6 +374,7 @@ id
 userId
 text
 language
+timezone
 status
 createdAt
 ```
@@ -385,51 +389,74 @@ failed
 
 ---
 
-## Notification Layer
+### Reminder
 
-This layer is responsible for delivering reminders to users.
+Stores scheduled reminder events.
 
-Two types of notifications are supported:
-
-### Local Notifications
-
-Handled by the mobile application.
-
-Flow:
+Fields:
 
 ```
-Task created
-↓
-Reminder timestamp stored
-↓
-Mobile schedules notification
-↓
-Notification triggered locally
+id
+taskId
+type
+scheduledAt
+sentAt
+status
 ```
 
-Advantages:
+Reminder types:
 
 ```
-Low latency
-No server cost
-Works offline
+prepare
+main
+followup
 ```
 
 ---
 
-### Future Push Notifications
+## Notification Layer
 
-For cloud reminders:
+This layer delivers reminders and enables conversational task interaction.
+
+Reminder flow:
 
 ```
-Backend scheduler
+Task created
 ↓
-Push notification service
+Reminder scheduler generates reminder records
 ↓
-Mobile device notification
+Reminder worker scans due reminders
+↓
+Notification sent to user
+↓
+User interaction captured
 ```
 
-Possible providers:
+Reminder types:
+
+```
+Preparation reminder
+Main reminder
+Follow-up confirmation
+```
+
+Example interaction:
+
+```
+4:50 → Milk time in 10 minutes
+5:00 → Time to buy milk
+5:05 → Did you manage to buy the milk?
+```
+
+Notifications may be delivered via:
+
+```
+Mobile push notifications
+Local notifications
+Assistant voice responses
+```
+
+Future integrations:
 
 ```
 Firebase Cloud Messaging
@@ -438,7 +465,7 @@ Apple Push Notification Service
 
 ---
 
-# Data Flow
+## Data Flow
 
 Below is the full lifecycle of a voice command.
 
@@ -446,34 +473,35 @@ Below is the full lifecycle of a voice command.
 
 ```
 User says:
-"Remind me to buy milk tomorrow at 8am"
+"Buy milk in 2 minutes"
 ```
 
 ---
 
 ### Step 2 — Speech Recognition
 
-Speech is converted to text:
+Device converts speech into text:
 
 ```
-buy milk tomorrow at 8am
+buy milk in 2 minutes
 ```
 
 ---
 
 ### Step 3 — Voice Input API
 
-Mobile app or assistant calls:
+The mobile app calls:
 
 ```
 POST /v1/voice-input
 ```
 
-Payload:
+Payload example:
 
 ```
 {
-"text": "buy milk tomorrow at 8am"
+"text": "buy milk in 2 minutes",
+"timezone": "Asia/Kolkata"
 }
 ```
 
@@ -492,7 +520,7 @@ status = pending
 
 ### Step 5 — Queue Job Created
 
-The backend pushes a job to Redis queue:
+A job is pushed into Redis:
 
 ```
 voice-processing queue
@@ -502,56 +530,64 @@ voice-processing queue
 
 ### Step 6 — Worker Processing
 
-A worker service consumes the job.
-
-Worker performs:
+The worker consumes the job and calls the Python NLP service.
 
 ```
-parse voice text
-extract date/time
-generate task title
+POST /parse
 ```
+
+The NLP engine extracts task data.
 
 ---
 
 ### Step 7 — Task Creation
 
-Worker creates a task:
+Worker creates a task record:
 
 ```
 Task table
 source = voice
 ```
 
-Example structured result:
+---
+
+### Step 8 — Reminder Scheduling
+
+Reminder scheduler creates:
 
 ```
-title: buy milk
-reminderAt: tomorrow 08:00
-priority: medium
+prepare reminder
+main reminder
+follow-up reminder
 ```
+
+These records are stored in the `Reminder` table.
 
 ---
 
-### Step 8 — Voice Input Updated
+### Step 9 — Reminder Execution
 
-Voice input status becomes:
-
-```
-processed
-```
+Reminder worker scans due reminders and triggers notifications.
 
 ---
 
-### Step 9 — Notification Scheduled
+### Step 10 — User Interaction
 
-Reminder time is stored and notification scheduled on device.
+User responds:
+
+```
+Yes
+Not yet
+Snooze
+```
+
+The system updates the task accordingly.
 
 ---
 
 # Security Strategy
 
-Security is enforced at multiple layers.
+Security is implemented across multiple layers.
 
 ### Authentication
 
@@ -574,7 +610,7 @@ Stored on device
 Sent with every API request
 ```
 
-Header format:
+Authorization header:
 
 ```
 Authorization: Bearer TOKEN
@@ -584,14 +620,14 @@ Authorization: Bearer TOKEN
 
 ### Authorization
 
-All protected APIs verify:
+Protected APIs verify:
 
 ```
 JWT validity
-User ownership of tasks
+User ownership of resources
 ```
 
-Example protection:
+Examples:
 
 ```
 /v1/tasks
@@ -606,7 +642,7 @@ Privacy protections include:
 
 ```
 No raw audio stored
-Only text commands saved
+Only text commands stored
 User data isolated by userId
 Secure token storage
 ```
@@ -615,22 +651,24 @@ Secure token storage
 
 ### Microphone Access
 
-Handled by the mobile OS:
+Handled at the operating system level.
 
 ```
 User permission required
-OS-level security enforced
+OS-level privacy controls
 ```
+
+The app only receives text commands generated by speech recognition.
 
 ---
 
 # Scalability Strategy
 
-The architecture is designed to scale horizontally.
+The architecture is designed for horizontal scalability.
 
 ### Stateless Backend
 
-Fastify servers are stateless and can be scaled using:
+Fastify servers are stateless and can scale via:
 
 ```
 multiple server instances
@@ -647,11 +685,12 @@ Advantages:
 
 ```
 asynchronous processing
-retry support
-horizontal worker scaling
+job retries
+load smoothing
+independent worker scaling
 ```
 
-Workers can be scaled independently:
+Workers can scale independently:
 
 ```
 Worker 1
@@ -675,39 +714,36 @@ partitioning
 
 ### Global Expansion
 
-Future architecture:
+Future architecture may include:
 
 ```
-Global CDN
-Regional API clusters
-Geo-replicated databases
+CDN for global assets
+regional API clusters
+geo-replicated databases
 ```
-
-This ensures low latency for global users.
 
 ---
 
 ### Event-Driven Architecture
 
-Using queues enables:
+The system uses event-driven processing:
 
 ```
-fault tolerance
-retry logic
-load smoothing
-background processing
+voice events
+task events
+reminder events
 ```
 
-This allows the system to handle **large volumes of voice commands without blocking the API**.
+This ensures high throughput and resilience while handling large numbers of voice commands globally.
 
 ---
 
-The resulting system architecture supports:
+The resulting architecture supports:
 
 ```
-voice-first interaction
-assistant integration
-real-time task management
-scalable backend processing
+voice-first task interaction
+conversational reminders
+assistant integrations
+scalable asynchronous processing
 secure user data handling
 ```

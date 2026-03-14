@@ -20,6 +20,9 @@ export class AuthController {
     const body = verifyOtpSchema.parse(req.body);
 
     const user = await this.service.verifyOtp(body.phone, body.email, body.otp);
+    if (!user) {
+      throw new Error("Invalid OTP");
+    }
 
     const token = req.server.jwt.sign({
       id: user.id

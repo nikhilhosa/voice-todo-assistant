@@ -25,22 +25,22 @@ export class TaskRepository {
   }
 
   async update(id: string, userId: string, data: any) {
-    return prisma.task.update({
-      where: { id },
+    return prisma.task.updateMany({
+      where: { id, userId },
       data
     });
   }
 
   async softDelete(id: string, userId: string) {
-    return prisma.task.update({
-      where: { id },
+    return prisma.task.updateMany({
+      where: { id, userId },
       data: { deletedAt: new Date() },
     });
   }
 
   async complete(id: string, userId: string) {
-    return prisma.task.update({
-      where: { id },
+    return prisma.task.updateMany({
+      where: { id, userId },
       data: {
         status: "completed",
         completedAt: new Date(),

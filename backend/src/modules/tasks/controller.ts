@@ -6,7 +6,7 @@ export class TaskController {
   private service = new TaskService();
 
   async create(req: FastifyRequest, reply: FastifyReply) {
-    const user = req.user as { id: string };
+    const user = req.user;
     const body = createTaskSchema.parse(req.body);
 
     const task = await this.service.createTask({
@@ -18,7 +18,7 @@ export class TaskController {
   }
 
   async list(req: FastifyRequest, reply: FastifyReply) {
-    const user = req.user as { id: string };
+    const user = req.user;
 
     const tasks = await this.service.getTasks(user.id);
 
@@ -26,7 +26,7 @@ export class TaskController {
   }
 
   async update(req: FastifyRequest, reply: FastifyReply) {
-    const user = req.user as { id: string };
+    const user = req.user;
     const { id } = req.params as any;
 
     const body = updateTaskSchema.parse(req.body);
@@ -37,7 +37,7 @@ export class TaskController {
   }
 
   async delete(req: FastifyRequest, reply: FastifyReply) {
-    const user = req.user as { id: string };
+    const user = req.user;
     const { id } = req.params as any;
 
     await this.service.deleteTask(id, user.id);
@@ -46,7 +46,7 @@ export class TaskController {
   }
 
   async complete(req: FastifyRequest, reply: FastifyReply) {
-    const user = req.user as { id: string };
+    const user = req.user;
     const { id } = req.params as any;
 
     await this.service.completeTask(id, user.id);

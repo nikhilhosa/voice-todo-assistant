@@ -1,5 +1,4 @@
 import { z } from "zod"
-import { zodToJsonSchema } from "zod-to-json-schema"
 
 export const voiceInputZod = z.object({
   text: z.string().min(2).max(500),
@@ -7,4 +6,13 @@ export const voiceInputZod = z.object({
   timezone: z.string().optional()
 })
 
-export const voiceInputSchema = zodToJsonSchema(voiceInputZod)
+export const voiceInputSchema = {
+  type: "object",
+  required: ["text"],
+  properties: {
+    text: { type: "string", minLength: 2, maxLength: 500 },
+    language: { type: "string" },
+    timezone: { type: "string" }
+  },
+  additionalProperties: false
+} as const

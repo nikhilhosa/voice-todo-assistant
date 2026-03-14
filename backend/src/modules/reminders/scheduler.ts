@@ -1,39 +1,44 @@
-import { ReminderRepository } from "./repository"
+import { PrismaClient } from "@prisma/client";
+import logger from "../../utils/logger";
 
-export class ReminderScheduler {
+const prisma = new PrismaClient();
 
-  private repo = new ReminderRepository()
+export async function scheduleTaskReminders(taskId: string): Promise<void> {
+  try {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId }
+    });
 
-  async scheduleTaskReminders(task:any){
+    if (!task?.reminderAt) {
+      logger.warn(`No reminderAt for task ${taskId}, skipping scheduling`);
+      return;
+    }
 
-    if(!task.reminderAt) return
+    const reminderAt = new Date(task.reminderAt);
+    if (isNaN(reminderAt.getTime())) {
+      logger.error(`Invalid reminderAt for task ${taskId}: ${task.reminderAt}`);
+      return;
+    }
 
-    const reminderTime = new Date(task.reminderAt)
+    await prisma.reminder.deleteMany({ where: { taskId } });
 
-    const prepare = new Date(reminderTime)
-    prepare.setMinutes(prepare.getMinutes() - 10)
+    const reminders = [
+      { type: "prepare", scheduledAt: new Date(reminderAt.getTime() - 5 * 60 * 1000) },
+      { type: "main", scheduledAt: reminderAt },
+      { type: "followup", scheduledAt: new Date(reminderAt.getTime() + 5 * 60 * 1000) }
+    ];
 
-    const followup = new Date(reminderTime)
-    followup.setMinutes(followup.getMinutes() + 5)
+    await prisma.reminder.createMany({
+      data: reminders.map((reminder) => ({
+        taskId,
+        type: reminder.type,
+        scheduledAt: reminder.scheduledAt.toISOString(),
+        status: "pending"
+      }))
+    });
 
-    await this.repo.create({
-      taskId:task.id,
-      type:"prepare",
-      scheduledAt:prepare
-    })
-
-    await this.repo.create({
-      taskId:task.id,
-      type:"main",
-      scheduledAt:reminderTime
-    })
-
-    await this.repo.create({
-      taskId:task.id,
-      type:"followup",
-      scheduledAt:followup
-    })
-
+    logger.info(`Scheduled ${reminders.length} reminders for task ${taskId}`);
+  } catch (error) {
+    logger.error({ error }, `Failed to schedule reminders for task ${taskId}`);
   }
-
 }

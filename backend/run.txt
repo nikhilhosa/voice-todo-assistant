@@ -15,3 +15,8 @@ verify : http://localhost:4000/health
 
 Voice processing in annother terminala : npx ts-node src/worker/worker.ts [cd backend]
 
+DatabaseMigration : npx prisma migrate dev -n add_reminder_engine or [npx prisma migrate dev]
+
+Python-nlp: [uvicorn app:app --port 8001 --reload]
+
+

@@ -37,475 +37,200 @@ Output only markdown content.
 
 ----------------------------------------------------------------------------------------------------------------------------------
 
-Nikhil, I went through the **entire conversation carefully and reconstructed the real state of your system**. Instead of guessing, I’m going to give you a **clean engineering audit** and then define the **correct next steps** so we don’t keep patch-fixing errors.
+# Next Development Steps
 
-I’ll break it into:
+## Current Objective
 
-1️⃣ What is **definitely implemented and working**
-2️⃣ What is **implemented but unstable / partially integrated**
-3️⃣ What is **missing or incorrectly wired**
-4️⃣ The **correct stabilization step before adding more features**
-5️⃣ The **next feature we should build**
+Stabilize the **time extraction pipeline from voice commands** so that the Python NLP service correctly parses natural language time expressions and populates the `dueDate` and `reminderAt` fields in the `Task` model. This is required for the **Reminder Engine** to schedule and trigger intelligent reminders.
 
 ---
 
-# 1️⃣ What You Successfully Built (Confirmed Working)
+## Immediate Tasks
 
-These parts were tested earlier and **worked**.
+1. **Verify Python NLP Parsing**
 
-## Backend Infrastructure
+   * Test the `/parse` endpoint with various natural language inputs.
+   * Ensure responses include:
 
-You built a production-style backend using:
+     * `intent`
+     * `title`
+     * `dueDate`
+     * `reminderAt`
 
-* **Fastify server**
-* **TypeScript**
-* **Prisma ORM**
-* **PostgreSQL (Docker)**
-* **Redis (Docker)**
-* **BullMQ queue**
-* **JWT authentication**
-* **Zod validation**
+2. **Fix Time Parsing in Python NLP**
 
-Your stack right now:
+   * Ensure `dateparser` correctly interprets relative time expressions (e.g., “in 2 minutes”, “tomorrow at 8am”).
+   * Ensure timezone handling converts local user time to UTC.
 
-```
-Fastify API
-PostgreSQL
-Redis
-BullMQ
-Prisma
-TypeScript
-```
+3. **Validate Worker → NLP Integration**
 
-This is already a **very strong architecture**.
+   * Confirm the worker sends requests to the Python NLP service.
+   * Log and inspect parsed NLP results before task creation.
 
----
+4. **Update Worker Task Creation Logic**
 
-# 2️⃣ Database Layer (Working)
+   * Ensure parsed `dueDate` and `reminderAt` values are properly converted to JavaScript `Date` objects before saving.
 
-Your Prisma schema currently contains:
+5. **Verify Reminder Scheduling**
 
-```
-User
-Task
-VoiceInput
-```
+   * After task creation, ensure `ReminderScheduler.scheduleTaskReminders()` is executed when `reminderAt` is present.
 
-Relations:
+6. **Confirm Reminder Records Creation**
 
-```
-User
- ├─ tasks
- └─ voiceInputs
+   * Verify that `prepare`, `main`, and `followup` reminders are inserted into the `Reminder` table.
 
-Task
- └─ belongs to User
+7. **Test Reminder Worker**
 
-VoiceInput
- └─ belongs to User
-```
+   * Ensure the reminder worker detects due reminders and triggers the reminder engine.
 
-This structure is correct for your system.
+8. **Validate Reminder Status Updates**
+
+   * Confirm that reminders move from `pending` → `sent` when triggered.
 
 ---
 
-# 3️⃣ Authentication System (Working)
+## Required Files
 
-You successfully implemented:
+Files likely to be modified or verified:
 
-```
-POST /auth/otp/request
-POST /auth/otp/verify
-```
+Backend Worker
 
-Flow:
+* `src/worker/voiceProcessor.ts`
+* `src/worker/worker.ts`
 
-```
-phone/email
-   ↓
-OTP verification
-   ↓
-JWT token issued
-   ↓
-user created if new
-```
+Reminder Engine
 
-Protected routes now use:
+* `src/modules/reminders/scheduler.ts`
+* `src/modules/reminders/engine.ts`
+* `src/modules/reminders/repository.ts`
+* `src/worker/reminderWorker.ts`
 
-```
-Authorization: Bearer TOKEN
-```
+Voice Module
 
-This part **works**.
+* `src/modules/voice/controller.ts`
+* `src/modules/voice/service.ts`
+* `src/modules/voice/routes.ts`
 
----
+Python NLP Service
 
-# 4️⃣ Task Engine (Working)
+* `python-nlp/app.py`
+* `python-nlp/parser.py`
 
-Endpoints confirmed working:
+Database
 
-```
-POST /v1/tasks
-GET /v1/tasks
-PUT /v1/tasks/:id
-DELETE /v1/tasks/:id
-PATCH /v1/tasks/:id/complete
-```
-
-Capabilities:
-
-✔ create task
-✔ edit task
-✔ soft delete
-✔ mark complete
-✔ user isolation
+* `prisma/schema.prisma`
 
 ---
 
-# 5️⃣ Queue System (Working)
+## Dependencies Required
 
-You created a queue:
+Node.js Dependencies
 
-```
-voice-processing
-```
+* `axios` (for calling Python NLP service)
+* `bullmq` (queue processing)
+* `ioredis`
+* `zod`
+* `zod-to-json-schema`
 
-Producer:
+Python Dependencies
 
-```
-voiceQueue.add(...)
-```
+* `fastapi`
+* `uvicorn`
+* `dateparser`
+* `pytz`
 
-Technology:
+Infrastructure
 
-```
-BullMQ + Redis
-```
-
-Correct architecture.
-
----
-
-# 6️⃣ Worker Service (Almost Working)
-
-Worker exists:
-
-```
-src/worker/worker.ts
-```
-
-Worker responsibilities:
-
-```
-listen to queue
-fetch VoiceInput
-parse voice text
-create task
-mark voice input processed
-```
-
-The only bug we fixed was **Redis type mismatch**, which came from using:
-
-```
-connection: redis
-```
-
-instead of:
-
-```
-connection: { host, port }
-```
+* PostgreSQL
+* Redis
 
 ---
 
-# 7️⃣ Voice API Module (This Was Missing)
+## Implementation Notes
 
-This is the **main thing we discovered during debugging**.
+* The backend must store **all timestamps in UTC**.
+* User timezone must be provided by the client and passed to the NLP service.
+* The NLP engine should return ISO8601 timestamps.
+* The worker must convert NLP timestamps to JavaScript `Date` objects before storing.
+* Reminder scheduling depends on `task.reminderAt`.
+* Reminder engine should only schedule reminders if `reminderAt` is not null.
+* Logging should be added temporarily for debugging NLP responses.
 
-Your backend returned:
+Example debug log:
 
-```
-Route POST:/v1/voice-input not found
-```
-
-Meaning the **voice module was never actually created or registered**.
-
-So we created:
-
-```
-src/modules/voice
+```ts
+console.log("Parsed NLP result:", parsed)
 ```
 
-with files:
-
-```
-controller.ts
-service.ts
-repository.ts
-routes.ts
-schema.ts
-```
+This helps confirm correct parsing.
 
 ---
 
-# 8️⃣ Current System Architecture
+## Testing Plan
 
-After all fixes, your system now looks like this:
+1. Start all services:
 
-```
-User Voice
-      ↓
-Assistant / App
-      ↓
+   * Backend API
+   * Worker
+   * Reminder worker
+   * Python NLP server
+
+2. Send a test voice command:
+
+```json
 POST /v1/voice-input
-      ↓
-VoiceInput stored in DB
-      ↓
-BullMQ Queue
-      ↓
-Worker
-      ↓
-Rule Parser
-      ↓
-Task created
+{
+"text": "buy milk in 2 minutes",
+"timezone": "Asia/Kolkata"
+}
 ```
 
-This is **exactly how large async systems work**.
+3. Verify:
 
-Examples:
+Task table
 
-```
-Uber ride processing
-Stripe payment processing
-Slack message processing
-```
+* `title` parsed correctly
+* `reminderAt` populated
+* `dueDate` populated
+
+Reminder table
+
+* Three reminders created:
+
+  * `prepare`
+  * `main`
+  * `followup`
+
+Worker logs
+
+* NLP parsing log
+* task creation confirmation
+
+Reminder worker logs
+
+* Reminder notifications printed
+
+Reminder status
+
+* `pending` → `sent`
 
 ---
 
-# 9️⃣ Where the System Still Needs Stabilization
-
-Before building new features, we must stabilize three things.
-
-## A — Startup reliability
-
-Right now when you restart laptop you must manually start:
-
-```
-docker compose
-npm run dev
-worker
-```
-
-We should add a **dev launcher script**.
-
----
-
-## B — Debugging visibility
-
-Right now it's hard to know:
-
-```
-which routes are loaded
-which queues exist
-which workers are running
-```
-
-We should add:
-
-```
-/debug/routes
-/debug/queues
-```
-
----
-
-## C — Worker monitoring
-
-We need logs like:
-
-```
-job received
-job processed
-job failed
-```
-
-This helps debugging.
-
----
-
-# 10️⃣ What We Should NOT Build Yet
-
-You mentioned earlier:
-
-> "AI later because of API cost"
-
-Good decision.
-
-So we **should NOT add AI yet**.
-
-Instead we build:
-
-```
-rule-based NLP engine
-```
-
-Example commands your system should understand:
-
-```
-call mom at 6pm
-meeting tomorrow morning
-buy milk in 2 hours
-gym next monday
-pay rent on 1st
-```
-
-This gives **80% of AI power without cost**.
-
----
-
-# 11️⃣ The Correct Next Feature
-
-The next feature should be:
-
-# 🧠 Rule-Based NLP Engine
-
-We replace this simple parser:
-
-```
-"remind me to"
-```
-
-with a **real language parser**.
-
-Capabilities:
-
-```
-detect time
-detect date
-detect task title
-detect reminder
-detect recurrence
-```
-
-Example conversion:
-
-Input:
-
-```
-remind me to call mom tomorrow at 6pm
-```
-
-Parsed:
-
-```
-title: call mom
-dueDate: tomorrow
-reminder: 6pm
-```
-
-Then create the task.
-
----
-
-# 12️⃣ Future Roadmap (Already Planned)
-
-Once NLP works:
-
-Next steps will be:
-
-```
-Feature 6
-Smart NLP engine
-```
-
-```
-Feature 7
-Local notification scheduler
-```
-
-```
-Feature 8
-Mobile app
-```
-
-```
-Feature 9
-Siri integration
-```
-
-```
-Feature 10
-Google Assistant integration
-```
-
----
-
-# 13️⃣ Important Observation
-
-You are **not building a simple to-do app anymore**.
-
-You are building:
-
-```
-Voice-first task automation system
-```
-
-Which is much closer to:
-
-```
-Todoist AI
-Motion
-Reclaim
-Google Assistant tasks
-```
-
-This is a **much bigger product**.
-
----
-
-# 14️⃣ My Recommendation Before Next Feature
-
-Before building more, we should implement **one stabilization feature**:
-
-# 🔧 System Diagnostics
-
-Add endpoints:
-
-```
-GET /debug/routes
-GET /debug/queues
-GET /debug/health
-```
-
-These help you instantly verify:
-
-```
-routes loaded
-queues active
-worker running
-redis connected
-database connected
-```
-
-This will eliminate **90% of debugging time**.
-
----
-
-# If you're ready
-
-Next I will guide you to build:
-
-# 🚀 Feature 6 — Smart Rule-Based NLP Engine
-
-This will allow commands like:
-
-```
-call mom at 6pm
-meeting tomorrow morning
-buy milk in 2 hours
-gym next monday
-```
-
-And make your assistant feel **AI powered without AI cost**.
-
-This will be **the brain of your voice system**.
+## Expected Outcome
+
+After completing these tasks:
+
+* Voice commands correctly extract time expressions.
+* Tasks contain valid `dueDate` and `reminderAt`.
+* Reminder scheduler automatically creates reminder records.
+* Reminder worker detects and triggers scheduled reminders.
+* The system delivers conversational reminders following the **human-coach interaction model**.
+
+The full pipeline will function as:
+
+Voice Command
+→ NLP Parsing
+→ Task Creation
+→ Reminder Scheduling
+→ Reminder Engine
+→ User Interaction Loop

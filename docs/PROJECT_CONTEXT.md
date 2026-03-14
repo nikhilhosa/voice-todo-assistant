@@ -65,7 +65,6 @@ Do not include extra explanations.
 
 
 -------------------Master Prompt----------------------------------------
-
 # Project Context
 
 ## Project Name
@@ -74,65 +73,69 @@ Voice-First Smart To-Do Assistant
 
 ## App Concept
 
-A voice-first productivity system that allows users to create and manage tasks by speaking naturally. The assistant captures spoken commands, converts them into structured tasks, and stores them in a task management backend. The system integrates with mobile assistants such as Siri and Google Assistant so users do not need to open the app.
+A voice-first productivity assistant that allows users to create, manage, and complete tasks through natural voice interaction. The system converts spoken commands into structured tasks, schedules intelligent reminders, and interacts with users conversationally to confirm task completion and adapt reminders over time.
 
 ## Core Philosophy
 
 * Speak once → task structured automatically
-* No need to open the app for task creation
-* Voice-first productivity experience
-* Clean, scalable architecture
-* Feature-by-feature development
-* Production-ready implementations (no placeholders or demo shortcuts)
-* Cost-efficient infrastructure with minimal reliance on paid AI APIs
+* Voice-first productivity without needing to open the app
+* Conversational assistant behavior instead of simple notifications
+* Event-driven, scalable backend architecture
+* Feature-by-feature development with production-ready implementations
+* Human-like reminder interactions designed around behavioral psychology
+* Minimal reliance on paid AI APIs through rule-based and open-source NLP
 
 ## Target Users
 
-* Individual productivity users
 * Busy professionals
 * Students
-* Mobile-first users who prefer voice commands
-* Users already relying on Siri / Google Assistant
+* Individuals managing daily tasks through voice
+* Mobile-first users who prefer voice assistants
+* Users already relying on Siri or Google Assistant
 
 ## Current Development Stage
 
-Backend infrastructure and core task system are implemented.
-Authentication and task APIs are working.
-Voice input pipeline architecture is partially implemented (API + queue + worker).
-Currently stabilizing the voice processing module and integrating the voice route with the backend.
+Backend infrastructure and the core task system are implemented and functioning. Voice command ingestion, asynchronous processing via queue workers, and a Python-based NLP parsing service are operational. A reminder scheduling system has been designed and partially implemented to enable psychologically-informed interactive reminders.
 
 ## Key Features Planned
 
-* Voice task creation via assistants
-* Smart natural-language task parsing
-* Reminders and notifications
-* Multilingual voice commands
-* Task prioritization
-* Background voice capture through assistants
-* AI-assisted task parsing (optional future enhancement)
+* Intelligent conversational reminder engine
+* Adaptive reminders based on user behavior
+* Task completion confirmation via conversation
+* Recurring task detection
+* User interaction tracking for reminders
+* Mobile application (React Native or Flutter)
+* Push notification system
+* Siri App Intents integration
+* Google Assistant App Actions integration
 * Task analytics and productivity insights
-* Cross-device synchronization
-* Admin/analytics dashboards
-* Integration with mobile platforms (React Native or Flutter)
+* Multilingual voice command support
+* Behavior-learning reminder adjustment
+* Context-aware task updates
 
 ## Key Features Already Implemented
 
-* Backend server using Fastify
-* JWT authentication system
-* OTP login (phone/email)
+* Fastify backend server with modular architecture
+* JWT authentication with OTP login
 * Task CRUD API
 * Task completion and soft deletion
 * PostgreSQL database with Prisma ORM
 * Redis queue system using BullMQ
-* Worker architecture for asynchronous processing
-* Voice input storage system
-* Voice processing pipeline architecture
-* Rule-based parser concept for task extraction
+* Worker-based asynchronous processing
+* Voice input API endpoint
+* VoiceInput database model
+* Python NLP microservice for parsing commands
+* Natural-language time parsing using dateparser
+* Queue-based voice processing pipeline
+* Task creation from voice commands
+* Intent detection (create, complete, delete, update task)
+* Initial reminder scheduling architecture
+* Reminder worker framework
 
 ## Technology Stack
 
 Frontend:
-Planned (React Native or Flutter for mobile application)
+Planned (React Native or Flutter mobile application)
 
 Backend:
 Node.js
@@ -144,9 +147,10 @@ PostgreSQL
 Prisma ORM
 
 Voice Processing:
-Rule-based NLP parser (custom logic)
-Redis queue with BullMQ
-Worker-based async processing
+Python NLP microservice
+FastAPI
+dateparser library
+Rule-based NLP logic
 
 Assistant Integration:
 Apple Siri (App Intents – planned)
@@ -154,54 +158,46 @@ Google Assistant (App Actions – planned)
 
 ## System Components
 
-* Mobile Application
-* Backend API
+* Mobile Application (planned)
+* Backend API Server
 * Authentication System
 * Task Engine
-* Voice Input API
+* Voice Input Module
+* Python NLP Parsing Service
 * Redis Queue System
-* Worker Service
-* Voice Parser Engine
+* Worker Processing Service
+* Reminder Scheduler
+* Reminder Engine
 * Assistant Integration Layer
 * Database Layer
-* Notification System (planned)
+* Notification Delivery System (planned)
 
 ## Multilingual Strategy
 
-Voice commands will include a language field in the voice input model.
-Parsing logic will support language-specific rules.
-Future versions may integrate localized parsers or language models to support global users.
+Voice commands include a language field in the voice input model. The NLP system supports language-specific parsing rules and can be extended using localized NLP models or libraries. Multilingual support will be added incrementally through rule-based parsing and additional language-specific NLP modules.
 
 ## Cost Optimization Strategy
 
-* Avoid external AI APIs in early stages
-* Implement rule-based natural language parsing
-* Use open-source infrastructure (PostgreSQL, Redis)
-* Event-driven worker architecture to reduce compute load
-* AI services will only be added as fallback or optional enhancement
+* Avoid external AI APIs during early stages
+* Use rule-based NLP and open-source Python libraries
+* Use PostgreSQL and Redis as open-source infrastructure
+* Asynchronous queue architecture to reduce compute load
+* Python NLP service instead of paid AI models
+* AI services reserved for optional future enhancement
 
 ## Known Constraints
 
-* iOS background microphone access restrictions
+* iOS background microphone restrictions
 * Assistant integrations must follow Apple and Google platform limitations
-* Voice recognition handled by system assistants rather than the app itself
-* Natural language parsing accuracy limited without AI models
-* Queue and worker infrastructure required for asynchronous processing
+* Speech-to-text handled by device or assistant services
+* Natural language parsing accuracy limited without advanced AI models
+* Push notifications not yet implemented
+* Reminder interactions currently simulated via logs
 
 ## Current Focus
 
-Stabilizing the voice processing module:
-
-* Implementing the `/v1/voice-input` API endpoint
-* Storing voice commands in the `VoiceInput` database model
-* Sending voice commands to Redis queue
-* Processing jobs through a worker service
-* Converting voice text into structured tasks using rule-based parsing
+Implementing and validating the intelligent reminder engine that schedules preparation, main, and follow-up reminders, and enabling conversational task confirmation and behavioral reminder design.
 
 ## Next Step
 
-Finalize the voice module and ensure the full pipeline works:
-
-Voice Input API → VoiceInput Database → Redis Queue → Worker → Rule Parser → Task Creation
-
-After stabilization, the next development step is improving the rule-based natural language parser to understand common phrases such as time expressions and scheduling commands.
+Fix and validate the NLP time extraction pipeline so that parsed reminder timestamps correctly populate task `dueDate` and `reminderAt` fields, enabling the reminder scheduler to generate reminders automatically.

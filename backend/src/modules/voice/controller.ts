@@ -1,5 +1,6 @@
 import { FastifyReply, FastifyRequest } from "fastify"
 import { VoiceService } from "./service"
+import { voiceInputZod } from "./schema"
 
 export class VoiceController {
 
@@ -11,8 +12,8 @@ export class VoiceController {
 
   async createVoiceInput(request: FastifyRequest, reply: FastifyReply) {
 
-    const userId = (request as any).user.id
-    const { text, language, timezone } = request.body as any
+    const userId = request.user.id
+    const { text, language, timezone } = voiceInputZod.parse(request.body)
 
     const voice = await this.service.handleVoiceInput({
       userId,
