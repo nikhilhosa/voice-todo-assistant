@@ -2,9 +2,24 @@ import { ReminderEngine } from "../modules/reminders/engine"
 
 const engine = new ReminderEngine()
 
-setInterval(async ()=>{
+async function start() {
 
-  await engine.run()
+  console.log("Reminder engine started")
 
-},60000)
+  setInterval(async () => {
 
+    try {
+
+      await engine.run()
+
+    } catch (err) {
+
+      console.error("Reminder engine error:", err)
+
+    }
+
+  }, 60000)
+
+}
+
+start()

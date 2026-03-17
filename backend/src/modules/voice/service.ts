@@ -16,7 +16,7 @@ export class VoiceService {
     await voiceQueue.add(
       "process-voice",
       {
-        voiceId: voice.id
+        voiceInputId: voice.id
       },
       {
         attempts: 3,

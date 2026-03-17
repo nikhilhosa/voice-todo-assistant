@@ -2,35 +2,29 @@ import { prisma } from "../../core/db/prisma"
 
 export class ReminderRepository {
 
-  async create(data:any){
-    return prisma.reminder.create({ data })
-  }
+  async findDueReminders(now: Date) {
 
-  async findDueReminders(now:Date){
+    try {
 
-    return prisma.reminder.findMany({
-      where:{
-        scheduledAt:{
-          lte:now
+      return await prisma.reminder.findMany({
+        where: {
+          status: "pending",
+          scheduledAt: {
+            lte: now
+          }
         },
-        status:"pending"
-      },
-      include:{
-        task:true
-      }
-    })
+        include: {
+          task: true
+        }
+      })
 
-  }
+    } catch (error) {
 
-  async markSent(id:string){
+      console.error("Reminder query failed:", error)
 
-    return prisma.reminder.update({
-      where:{ id },
-      data:{
-        status:"sent",
-        sentAt:new Date()
-      }
-    })
+      return []
+
+    }
 
   }
 

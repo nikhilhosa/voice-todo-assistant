@@ -1,8 +1,9 @@
-import { Queue } from "bullmq";
+import { Queue } from "bullmq"
+import { redisConnection } from "../redis/redis"
 
-export const voiceQueue = new Queue("voice-processing", {
-  connection: {
-    host: "127.0.0.1",
-    port: 6379
+export const voiceQueue = new Queue(
+  "voice-processing",
+  {
+    connection: redisConnection
   }
-});
+)

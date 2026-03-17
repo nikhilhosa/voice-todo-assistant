@@ -1,4 +1,5 @@
 import { buildApp } from "./app"
+import { env } from "./core/config/env"
 
 async function start() {
 
@@ -7,11 +8,11 @@ async function start() {
   try {
 
     await app.listen({
-      port: 3000,
+      port: env.PORT,
       host: "0.0.0.0"
     })
 
-    console.log("Server running on http://localhost:3000")
+    console.log(`Server running on http://localhost:${env.PORT}`)
 
   } catch (err) {
 

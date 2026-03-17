@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "worker": "ts-node src/worker/worker.ts",
-    "reminder": "ts-node src/worker/reminderWorker.ts"
+    "reminder": "ts-node src/worker/reminderWorker.ts",
+    "nlp": "cd python-nlp && uvicorn app:app --reload --port 8001"
   },
   "keywords": [],
   "author": "",

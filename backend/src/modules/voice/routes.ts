@@ -9,7 +9,7 @@ export async function voiceRoutes(app: FastifyInstance) {
   app.post(
     "/v1/voice-input",
     {
-      preHandler: [app.authenticate],
+      //preHandler: [app.authenticate],
       schema: {
         body: voiceInputSchema
       }

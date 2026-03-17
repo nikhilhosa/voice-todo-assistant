@@ -5,13 +5,13 @@ export class AuthService {
 
   private repo = new AuthRepository();
 
-  requestOtp(phone?: string, email?: string) {
+  async requestOtp(phone?: string, email?: string) {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const key = phone || email!;
 
-    saveOtp(key, otp);
+    await saveOtp(key, otp);
 
     console.log("OTP:", otp);
 
@@ -22,7 +22,7 @@ export class AuthService {
 
     const key = phone || email!;
 
-    const valid = verifyOtp(key, otp!);
+    const valid = await verifyOtp(key, otp!);
 
     if (!valid) {
       throw new Error("Invalid OTP");

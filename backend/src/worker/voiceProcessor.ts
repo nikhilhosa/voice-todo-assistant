@@ -107,7 +107,7 @@ async function handleCreateTask(
       userId: voiceInput.userId,
       title: parsed.title,
       description: parsed.description || undefined,
-      dueDate: dueDate?.toISOString() || null,
+      dueDate: dueDate || null,
       reminderAt: reminderAt?.toISOString() || null,
       source: "voice",
       status: "pending"
