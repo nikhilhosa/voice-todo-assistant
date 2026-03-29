@@ -16,6 +16,7 @@ class ParseResult(BaseModel):
     dueDate: Optional[str] = None
     reminderAt: Optional[str] = None
     description: Optional[str] = None
+    targetTitle: Optional[str] = None
 
 
 class NLPParser:
@@ -24,12 +25,11 @@ class NLPParser:
             "create": ["remind", "reminder", "task", "todo", "remember", "schedule", "set"],
             "complete": ["done", "completed", "finish", "finished", "complete"],
             "delete": ["delete", "remove", "cancel"],
+            "update": ["update", "change", "move", "reschedule", "postpone"],
         }
 
     def parse(self, text: str, timezone: str = "UTC", language: str = "en") -> ParseResult:
-        """Main parsing method with stronger time extraction"""
         original_text = (text or "").strip()
-        text_lower = original_text.lower()
 
         if not original_text:
             return ParseResult(intent="unknown", title="")
@@ -37,16 +37,22 @@ class NLPParser:
         logger.info(f"Parsing: '{original_text}' (tz: {timezone}, lang: {language})")
 
         safe_timezone = self._safe_timezone(timezone)
-        intent = self._detect_intent(text_lower)
+        intent = self._detect_intent(original_text.lower())
 
         if intent == "create_task":
             return self._parse_create_task(original_text, safe_timezone, language)
-        elif intent == "complete_task":
+        if intent == "complete_task":
             return self._parse_complete(original_text)
-        elif intent == "delete_task":
+        if intent == "delete_task":
             return self._parse_delete(original_text)
-        else:
-            return ParseResult(intent="unknown", title=original_text[:200], description=original_text)
+        if intent == "update_task":
+            return self._parse_update_task(original_text, safe_timezone, language)
+
+        return ParseResult(
+            intent="unknown",
+            title=original_text[:200],
+            description=original_text
+        )
 
     def _safe_timezone(self, timezone: str) -> str:
         try:
@@ -60,34 +66,26 @@ class NLPParser:
         create_score = sum(1 for word in self.intents["create"] if word in text)
         complete_score = sum(1 for word in self.intents["complete"] if word in text)
         delete_score = sum(1 for word in self.intents["delete"] if word in text)
+        update_score = sum(1 for word in self.intents["update"] if word in text)
 
+        if update_score > 0 and update_score >= create_score and update_score >= complete_score and update_score >= delete_score:
+            return "update_task"
         if create_score > 0 and create_score >= complete_score and create_score >= delete_score:
             return "create_task"
-        elif complete_score > 0 and complete_score >= delete_score:
+        if complete_score > 0 and complete_score >= delete_score:
             return "complete_task"
-        elif delete_score > 0:
+        if delete_score > 0:
             return "delete_task"
         return "unknown"
 
-    def _parse_create_task(self, text: str, timezone: str, language: str) -> ParseResult:
-        original_text = text.strip()
-
-        clean_text = re.sub(
-            r"^(remind me to|reminder to|remember to|schedule|set)\s+",
-            "",
-            original_text,
-            flags=re.IGNORECASE,
-        ).strip()
-
+    def _extract_datetime(self, text: str, timezone: str) -> Optional[str]:
         tz = pytz.timezone(timezone)
         now = datetime.now(tz)
-
         parsed_due = None
 
-        # 1) Strong relative-time parsing
         relative_match = re.search(
             r"\bin\s+(\d+)\s*(minute|minutes|hour|hours|day|days|week|weeks)\b",
-            clean_text,
+            text,
             flags=re.IGNORECASE,
         )
 
@@ -109,20 +107,12 @@ class NLPParser:
                 parsed_due = dt.astimezone(pytz.UTC).isoformat()
                 logger.info(f"Relative time parsed: '{relative_match.group(0)}' -> {parsed_due}")
 
-        # 2) Fallback to dateparser for natural date phrases
         if not parsed_due:
-            time_candidates = [
-                clean_text,
-                original_text,
-                re.sub(
-                    r"^(remind me to|reminder to|remember to|schedule|set)\s+",
-                    "",
-                    original_text,
-                    flags=re.IGNORECASE,
-                ).strip(),
+            candidates = [
+                text,
             ]
 
-            for time_str in time_candidates:
+            for time_str in candidates:
                 if not time_str:
                     continue
 
@@ -138,7 +128,6 @@ class NLPParser:
                     if dt:
                         if dt.tzinfo is None:
                             dt = tz.localize(dt)
-
                         if dt > now:
                             parsed_due = dt.astimezone(pytz.UTC).isoformat()
                             logger.info(f"Natural time parsed: '{time_str}' -> {parsed_due}")
@@ -146,6 +135,9 @@ class NLPParser:
                 except Exception as e:
                     logger.debug(f"Time parse failed for '{time_str}': {e}")
 
+        return parsed_due
+
+    def _strip_time_phrases(self, text: str) -> str:
         title = re.sub(
             r"\b("
             r"in\s+\d+\s*(minutes?|hours?|days?|weeks?)|"
@@ -155,23 +147,34 @@ class NLPParser:
             r"on\s+\w+"
             r")\b",
             "",
-            clean_text,
+            text,
             flags=re.IGNORECASE,
         )
-
         title = re.sub(r"[^\w\s]", " ", title).strip()
         title = " ".join(title.split())[:200]
+        return title
+
+    def _parse_create_task(self, text: str, timezone: str, language: str) -> ParseResult:
+        original_text = text.strip()
+
+        clean_text = re.sub(
+            r"^(remind me to|reminder to|remember to|schedule|set)\s+",
+            "",
+            original_text,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        parsed_due = self._extract_datetime(clean_text, timezone)
+        title = self._strip_time_phrases(clean_text)
 
         if not title:
             title = clean_text[:200] or "Task"
-
-        reminder_at = parsed_due
 
         return ParseResult(
             intent="create_task",
             title=title,
             dueDate=parsed_due,
-            reminderAt=reminder_at,
+            reminderAt=parsed_due,
             description=original_text,
         )
 
@@ -215,6 +218,39 @@ class NLPParser:
             intent="delete_task",
             title=title or "Task",
             description=text.strip(),
+        )
+
+    def _parse_update_task(self, text: str, timezone: str, language: str) -> ParseResult:
+        original_text = text.strip()
+
+        normalized = re.sub(
+            r"^(update|change|move|reschedule|postpone)\s+",
+            "",
+            original_text,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        parts = re.split(r"\s+\bto\b\s+", normalized, maxsplit=1, flags=re.IGNORECASE)
+
+        target_title = parts[0].strip() if parts else normalized
+        new_time_text = parts[1].strip() if len(parts) > 1 else normalized
+
+        parsed_due = self._extract_datetime(new_time_text, timezone)
+
+        cleaned_target = re.sub(r"\b(task|reminder|todo)\b", "", target_title, flags=re.IGNORECASE)
+        cleaned_target = re.sub(r"[^\w\s]", " ", cleaned_target).strip()
+        cleaned_target = " ".join(cleaned_target.split())[:200]
+
+        if not cleaned_target:
+            cleaned_target = target_title[:200] or "Task"
+
+        return ParseResult(
+            intent="update_task",
+            title=cleaned_target,
+            targetTitle=cleaned_target,
+            dueDate=parsed_due,
+            reminderAt=parsed_due,
+            description=original_text,
         )
 
 
