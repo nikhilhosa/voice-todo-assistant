@@ -1,34 +1,42 @@
-import chrono from "chrono-node"
+import chrono from "chrono-node";
 
-export interface DateParseResult {
-  dueDate?: Date
-  reminderAt?: Date
-  cleanedText: string
+export interface ParsedVoiceResult {
+  title: string;
+  reminderAt?: Date;
 }
 
-export function parseDateTime(text: string): DateParseResult {
+export function parseVoiceText(text: string): ParsedVoiceResult {
+  let cleaned = text.toLowerCase().trim();
 
-  const results = chrono.parse(text)
+  cleaned = cleaned
+    .replace(/^remind me to\s+/i, "")
+    .replace(/^remember to\s+/i, "")
+    .replace(/^please\s+/i, "")
+    .trim();
 
-  if (!results.length) {
-    return {
-      cleanedText: text
-    }
+  const results = chrono.parse(cleaned);
+  let reminderAt: Date | undefined;
+
+  if (results.length > 0) {
+    const result = results[0];
+    reminderAt = result.start.date();
+
+    cleaned =
+      cleaned.slice(0, result.index) +
+      cleaned.slice(result.index + result.text.length);
+
+    cleaned = cleaned
+      .replace(/\s+/g, " ")
+      .replace(/\b(at|on|by|for|tomorrow|today|next)\b\s*$/i, "")
+      .trim();
   }
 
-  const result = results[0]
-
-  const date = result.start.date()
-
-  const start = result.index
-  const end = start + result.text.length
-
-  const cleanedText =
-    text.slice(0, start) + text.slice(end)
+  if (!cleaned || cleaned.length < 2) {
+    cleaned = "Untitled task";
+  }
 
   return {
-    dueDate: date,
-    reminderAt: date,
-    cleanedText: cleanedText.trim()
-  }
+    title: cleaned,
+    reminderAt
+  };
 }

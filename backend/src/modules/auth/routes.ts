@@ -9,3 +9,5 @@ export async function authRoutes(app:FastifyInstance){
 
   app.post("/auth/otp/verify", controller.verifyOtp.bind(controller));
 }
+
+

@@ -1,12 +1,16 @@
 import { z } from "zod";
 
-export const requestOtpSchema = z.object({
-  phone: z.string().optional(),
-  email: z.string().email().optional()
-});
+const identitySchema = z
+  .object({
+    phone: z.string().min(8).max(20).optional(),
+    email: z.string().email().optional()
+  })
+  .refine((data) => Boolean(data.phone || data.email), {
+    message: "Either phone or email is required"
+  });
 
-export const verifyOtpSchema = z.object({
-  phone: z.string().optional(),
-  email: z.string().optional(),
+export const requestOtpSchema = identitySchema;
+
+export const verifyOtpSchema = identitySchema.extend({
   otp: z.string().length(6)
 });

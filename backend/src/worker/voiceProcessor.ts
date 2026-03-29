@@ -1,174 +1,54 @@
-import { PrismaClient } from "@prisma/client";
-import axios from "axios";
-import { Job } from "bullmq";
-import { z } from "zod";
+import { prisma } from "../core/db/prisma";
 import logger from "../utils/logger";
+import { parseVoiceText } from "./dateParser";
+import { createTaskFromVoice } from "./taskCreator";
 
-const prisma = new PrismaClient();
-const NLP_SERVICE_URL = process.env.NLP_SERVICE_URL || "http://localhost:8001";
-
-const NlpResponseSchema = z.object({
-  intent: z.enum(["create_task", "complete_task", "delete_task", "unknown"]),
-  title: z.string().min(1).max(200),
-  dueDate: z.string().nullable().optional(),
-  reminderAt: z.string().nullable().optional(),
-  description: z.string().nullable().optional()
-});
-
-type ParsedNlp = z.infer<typeof NlpResponseSchema>;
-type VoiceInputRecord = Awaited<ReturnType<typeof prisma.voiceInput.findUnique>>;
-
-export async function processVoiceInput(job: Job): Promise<void> {
-  const { voiceInputId } = job.data as { voiceInputId: string };
-
-  let voiceInput: VoiceInputRecord;
-
-  try {
-    voiceInput = await prisma.voiceInput.findUnique({
-      where: { id: voiceInputId }
-    });
-
-    if (!voiceInput) {
-      throw new Error(`VoiceInput ${voiceInputId} not found`);
-    }
-
-    logger.info(`Processing voice: "${voiceInput.text}" (ID: ${voiceInputId})`);
-
-    const nlpResponse = await axios.post(
-      `${NLP_SERVICE_URL}/parse`,
-      {
-        text: voiceInput.text,
-        timezone: voiceInput.timezone || "UTC",
-        language: voiceInput.language || "en"
-      },
-      { timeout: 5000 }
-    );
-
-    const parsed = NlpResponseSchema.parse(nlpResponse.data);
-    logger.info(
-      {
-        intent: parsed.intent,
-        title: parsed.title,
-        dueDate: parsed.dueDate,
-        reminderAt: parsed.reminderAt
-      },
-      "NLP Result"
-    );
-
-    switch (parsed.intent) {
-      case "create_task":
-        await handleCreateTask(voiceInput, parsed);
-        break;
-      case "complete_task":
-        await handleCompleteTask(voiceInput, parsed);
-        break;
-      case "delete_task":
-        await handleDeleteTask(voiceInput, parsed);
-        break;
-      default:
-        logger.warn(`Unknown intent: ${parsed.intent}`);
-    }
-
-    await prisma.voiceInput.update({
-      where: { id: voiceInputId },
-      data: { status: "processed" }
-    });
-
-    logger.info(`Voice processing completed: ${voiceInputId}`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    logger.error({ error: message }, `Voice processing failed (${voiceInputId})`);
-
-    await prisma.voiceInput.update({
-      where: { id: voiceInputId },
-      data: { status: "failed" }
-    });
-
-    throw error;
-  }
+interface VoiceJobData {
+  voiceInputId: string;
 }
 
-async function handleCreateTask(
-  voiceInput: NonNullable<VoiceInputRecord>,
-  parsed: ParsedNlp
-) {
-  const dueDate = parsed.dueDate ? new Date(parsed.dueDate) : null;
-  const reminderAt = parsed.reminderAt ? new Date(parsed.reminderAt) : null;
+export async function processVoiceInput(job: { data: VoiceJobData }) {
+  const { voiceInputId } = job.data;
 
-  if (dueDate && isNaN(dueDate.getTime())) {
-    logger.warn("Invalid dueDate, creating task without reminders");
+  const voiceInput = await prisma.voiceInput.findUnique({
+    where: { id: voiceInputId }
+  });
+
+  if (!voiceInput) {
+    throw new Error(`Voice input not found: ${voiceInputId}`);
   }
 
-  logger.info(`Creating task: "${parsed.title}"`);
+  const parsed = parseVoiceText(voiceInput.text);
 
-  const task = await prisma.task.create({
+  logger.info(
+    {
+      voiceInputId,
+      parsedTitle: parsed.title,
+      parsedReminderAt: parsed.reminderAt
+    },
+    "Voice text parsed"
+  );
+
+  const task = await createTaskFromVoice({
+    userId: voiceInput.userId,
+    title: parsed.title,
+    dueDate: parsed.reminderAt,
+    reminderAt: parsed.reminderAt,
+    priority: "medium"
+  });
+
+  await prisma.voiceInput.update({
+    where: { id: voiceInputId },
     data: {
-      userId: voiceInput.userId,
-      title: parsed.title,
-      description: parsed.description || undefined,
-      dueDate: dueDate || null,
-      reminderAt: reminderAt?.toISOString() || null,
-      source: "voice",
-      status: "pending"
+      status: "processed"
     }
   });
 
-  logger.info(`Task created: ID ${task.id}`);
-
-  if (reminderAt && !isNaN(reminderAt.getTime())) {
-    logger.info(`Scheduling reminders for task ${task.id}`);
-    const { scheduleTaskReminders } = await import("../modules/reminders/scheduler");
-    await scheduleTaskReminders(task.id);
-  }
-}
-
-async function handleCompleteTask(
-  voiceInput: NonNullable<VoiceInputRecord>,
-  parsed: ParsedNlp
-) {
-  const tasks = await prisma.task.findMany({
-    where: {
-      userId: voiceInput.userId,
-      title: { contains: parsed.title, mode: "insensitive" },
-      status: "pending",
-      deletedAt: null
+  logger.info(
+    {
+      voiceInputId,
+      taskId: task.id
     },
-    take: 1
-  });
-
-  if (tasks[0]) {
-    await prisma.task.update({
-      where: { id: tasks[0].id },
-      data: {
-        status: "completed",
-        completedAt: new Date().toISOString()
-      }
-    });
-    logger.info(`Completed task: ${tasks[0].id}`);
-  } else {
-    logger.warn(`No matching pending task for completion: ${parsed.title}`);
-  }
-}
-
-async function handleDeleteTask(
-  voiceInput: NonNullable<VoiceInputRecord>,
-  parsed: ParsedNlp
-) {
-  const tasks = await prisma.task.findMany({
-    where: {
-      userId: voiceInput.userId,
-      title: { contains: parsed.title, mode: "insensitive" },
-      deletedAt: null
-    },
-    take: 1
-  });
-
-  if (tasks[0]) {
-    await prisma.task.update({
-      where: { id: tasks[0].id },
-      data: { deletedAt: new Date().toISOString() }
-    });
-    logger.info(`Deleted task: ${tasks[0].id}`);
-  }
+    "Voice input processed successfully"
+  );
 }

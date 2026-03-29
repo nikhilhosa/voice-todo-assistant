@@ -1,41 +1,38 @@
-import { ReminderRepository } from "./repository"
+import { Reminder, Task } from "@prisma/client";
+import { ReminderRepository } from "./repository";
+
+type ReminderWithTask = Reminder & { task: Task };
 
 export class ReminderEngine {
+  private repo = new ReminderRepository();
 
-  private repo = new ReminderRepository()
+  async run() {
+    const reminders = await this.repo.findDueReminders(new Date());
 
-  async run(){
+    for (const reminder of reminders) {
+      const message = this.generateMessage(reminder);
 
-    const reminders = await this.repo.findDueReminders(new Date())
+      console.log("SEND NOTIFICATION:", message);
 
-    for(const reminder of reminders){
-
-      const message = this.generateMessage(reminder)
-
-      console.log("SEND NOTIFICATION:",message)
-
-      await this.repo.markSent(reminder.id)
-
+      await this.repo.markSent(reminder.id);
     }
-
   }
 
-  generateMessage(reminder:any){
+  generateMessage(reminder: ReminderWithTask): string {
+    const title = reminder.task.title;
 
-    const title = reminder.task.title
-
-    if(reminder.type === "prepare"){
-      return `Heads up! "${title}" in 10 minutes.`
+    if (reminder.type === "prepare") {
+      return `Heads up! \"${title}\" is coming up soon.`;
     }
 
-    if(reminder.type === "main"){
-      return `Time to ${title}.`
+    if (reminder.type === "main") {
+      return `Time to ${title}.`;
     }
 
-    if(reminder.type === "followup"){
-      return `Did you manage to ${title}?`
+    if (reminder.type === "followup") {
+      return `Did you manage to ${title}?`;
     }
 
+    return `Reminder: ${title}`;
   }
-
 }

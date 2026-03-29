@@ -67,3 +67,5 @@ model Reminder {
   @@index([scheduledAt])
   @@index([status])
 }
+
+

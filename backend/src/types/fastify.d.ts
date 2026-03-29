@@ -1,5 +1,6 @@
 import "@fastify/jwt";
 import "fastify";
+import { FastifyReply, FastifyRequest } from "fastify";
 
 declare module "@fastify/jwt" {
   interface FastifyJWT {
@@ -15,14 +16,10 @@ declare module "fastify" {
       reply: FastifyReply
     ) => Promise<void>;
   }
-}
 
-import { FastifyRequest } from "fastify"
-
-declare module "fastify" {
   interface FastifyRequest {
     user: {
-      id: string
-    }
+      id: string;
+    };
   }
 }

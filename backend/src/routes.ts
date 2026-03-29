@@ -11,3 +11,5 @@ export async function registerRoutes(app: FastifyInstance) {
   await voiceRoutes(app);
 }
 
+
+

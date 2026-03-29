@@ -1,3 +1,0 @@
--- AlterTable
-ALTER TABLE "VoiceInput" ADD COLUMN     "timezone" TEXT NOT NULL DEFAULT 'UTC',
-ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMP(3);

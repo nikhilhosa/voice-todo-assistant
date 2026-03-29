@@ -1,22 +1,34 @@
-import { Worker } from "bullmq"
-import { redisConnection } from "../core/redis/redis"
-import { processVoiceInput } from "./voiceProcessor"
+import { Worker } from "bullmq";
+import { redisConnection } from "../core/redis/redis";
+import logger from "../utils/logger";
+import { processVoiceInput } from "./voiceProcessor";
 
-const worker = new Worker(
-  "voice-processing",
-  processVoiceInput,
-  {
-    connection: redisConnection,
-    concurrency: 5
-  }
-)
+const worker = new Worker("voice-processing", processVoiceInput, {
+  connection: redisConnection,
+  concurrency: 5
+});
 
-worker.on("completed", job => {
-  console.log("Voice job completed:", job.id)
-})
+worker.on("ready", () => {
+  logger.info("Voice worker is ready");
+});
+
+worker.on("completed", (job) => {
+  logger.info({ jobId: job.id }, "Voice job completed");
+});
 
 worker.on("failed", (job, err) => {
-  console.error("Voice job failed:", job?.id, err)
-})
+  logger.error(
+    {
+      err,
+      jobId: job?.id,
+      attemptsMade: job?.attemptsMade
+    },
+    "Voice job failed"
+  );
+});
 
-console.log("Voice worker started")
+worker.on("error", (err) => {
+  logger.error({ err }, "Voice worker error");
+});
+
+logger.info("Voice worker started");

@@ -1,19 +1,20 @@
 {
-  "name": "backend",
+  "name": "voice-first-smart-todo-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "worker": "ts-node src/worker/worker.ts",
-    "reminder": "ts-node src/worker/reminderWorker.ts",
-    "nlp": "cd python-nlp && uvicorn app:app --reload --port 8001"
+    "worker:dev": "ts-node src/worker/worker.ts",
+    "reminder:dev": "ts-node src/worker/reminderWorker.ts",
+    "worker": "node dist/worker/worker.js",
+    "reminder": "node dist/worker/reminderWorker.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "nlp": "cd python-nlp && uvicorn app:app --reload --host 0.0.0.0 --port 8001"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
     "@fastify/cors": "^11.2.0",
     "@fastify/jwt": "^10.0.0",

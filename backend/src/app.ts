@@ -6,13 +6,15 @@ import { registerRoutes } from "./routes";
 import { registerErrorHandler } from "./core/middleware/errorHandler";
 
 export async function buildApp() {
-
   const app = Fastify({
     logger: {
-      transport: {
-        target: "pino-pretty",
-      },
-    },
+      transport:
+        process.env.NODE_ENV !== "production"
+          ? {
+              target: "pino-pretty"
+            }
+          : undefined
+    }
   });
 
   await app.register(cors, {
@@ -23,7 +25,6 @@ export async function buildApp() {
   await app.register(rateLimitPlugin);
 
   registerErrorHandler(app);
-
   await registerRoutes(app);
 
   return app;

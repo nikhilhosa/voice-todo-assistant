@@ -1,17 +1,23 @@
-import { VoiceRepository } from "./repository"
-import { voiceQueue } from "../../core/queue/queue"
+import { VoiceInput } from "@prisma/client";
+import { voiceQueue } from "../../core/queue/queue";
+import { VoiceRepository } from "./repository";
+
+interface CreateVoiceInput {
+  userId: string;
+  text: string;
+  language?: string;
+  timezone?: string;
+}
 
 export class VoiceService {
-
-  private repo: VoiceRepository
+  private repo: VoiceRepository;
 
   constructor() {
-    this.repo = new VoiceRepository()
+    this.repo = new VoiceRepository();
   }
 
-  async handleVoiceInput(data: any) {
-
-    const voice = await this.repo.create(data)
+  async handleVoiceInput(data: CreateVoiceInput): Promise<VoiceInput> {
+    const voice = await this.repo.create(data);
 
     await voiceQueue.add(
       "process-voice",
@@ -24,11 +30,11 @@ export class VoiceService {
           type: "exponential",
           delay: 5000
         },
-        removeOnComplete: true
+        removeOnComplete: true,
+        removeOnFail: 100
       }
-    )
+    );
 
-    return voice
+    return voice;
   }
-
 }

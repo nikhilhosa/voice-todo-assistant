@@ -2,10 +2,8 @@ import { FastifyInstance } from "fastify";
 import { ZodError } from "zod";
 
 export function registerErrorHandler(app: FastifyInstance) {
-
   app.setErrorHandler((error, request, reply) => {
-
-    request.log.error(error);
+    request.log.error({ err: error }, "Unhandled request error");
 
     if (error instanceof ZodError) {
       return reply.status(400).send({
@@ -14,16 +12,22 @@ export function registerErrorHandler(app: FastifyInstance) {
       });
     }
 
-    if (error instanceof Error && error.message === "Invalid OTP") {
-      return reply.status(401).send({
-        message: "Invalid OTP"
-      });
+    if (error instanceof Error) {
+      if (error.message === "Invalid OTP") {
+        return reply.status(401).send({ message: "Invalid OTP" });
+      }
+
+      if (error.message === "Due date cannot be in the past") {
+        return reply.status(400).send({ message: error.message });
+      }
+
+      if (error.message === "Task not found") {
+        return reply.status(404).send({ message: error.message });
+      }
     }
 
-    reply.status(500).send({
+    return reply.status(500).send({
       message: "Internal Server Error"
     });
-
   });
-
 }

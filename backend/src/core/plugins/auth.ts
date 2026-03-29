@@ -5,14 +5,14 @@ import { env } from "../config/env";
 
 export default fp(async (app) => {
   await app.register(jwt, {
-    secret: env.JWT_SECRET,
+    secret: env.JWT_SECRET
   });
 
   app.decorate("authenticate", async (req: FastifyRequest, reply: FastifyReply) => {
     try {
       await req.jwtVerify();
-    } catch (err) {
-      reply.code(401).send({ error: "Unauthorized" });
+    } catch {
+      return reply.code(401).send({ error: "Unauthorized" });
     }
   });
 });

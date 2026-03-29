@@ -1,25 +1,21 @@
-import { ReminderEngine } from "../modules/reminders/engine"
+import { ReminderEngine } from "../modules/reminders/engine";
+import logger from "../utils/logger";
 
-const engine = new ReminderEngine()
+const engine = new ReminderEngine();
+const intervalMs = 60_000;
 
-async function start() {
-
-  console.log("Reminder engine started")
-
-  setInterval(async () => {
-
-    try {
-
-      await engine.run()
-
-    } catch (err) {
-
-      console.error("Reminder engine error:", err)
-
-    }
-
-  }, 60000)
-
+async function runCycle() {
+  try {
+    await engine.run();
+  } catch (err) {
+    logger.error({ err }, "Reminder engine cycle failed");
+  }
 }
 
-start()
+async function start() {
+  logger.info("Reminder engine started");
+  await runCycle();
+  setInterval(runCycle, intervalMs);
+}
+
+void start();
